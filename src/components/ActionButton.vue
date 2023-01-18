@@ -5,7 +5,6 @@ const {icon} = defineProps({
 
 })
 </script>
-<!-- :class="[`h-[${size}] w-[${size}]`]"-->
 <template>
   <FlexboxLayout
       class="text-2xl bg-[#2e343f] text-white rounded-full items-center justify-center"

@@ -19,12 +19,16 @@ const cards = ref(dataCard.reverse()) as Ref<ItemCard[]>
 const currentView = ref(cards.value.length - 1)
 
 const manager = NSManager.getInstance();
-const gestureHandler = manager.createGestureHandler(NSHandlerType.PAN, 10, {
-  shouldCancelWhenOutside: false
-});
 
-gestureHandler.on(NSGestureHandlerTouchEvent, onGestureTouch as () => void);
-gestureHandler.on(NSGestureHandlerStateEvent, onGestureState as () => void);
+const getGestureHandler = () => {
+  const gestureHandler = manager.createGestureHandler(NSHandlerType.PAN, 10, {
+    shouldCancelWhenOutside: true
+  });
+
+  gestureHandler.on(NSGestureHandlerTouchEvent, onGestureTouch as () => void);
+  gestureHandler.on(NSGestureHandlerStateEvent, onGestureState as () => void);
+  return gestureHandler;
+}
 
 const getTranslateX = (index: number) => 0 // for alternate => index === (cards.value.length - 1) ? 0 : index % 2 === 0 ? 4 : -4;
 
@@ -35,7 +39,7 @@ const getScale = (index: number) => {
 };
 const getTranslateY = (index: number) => {
   const position = cards.value.length - currentView.value + index;
-  const normalized = normalizeRange(position, 0 , cards.value.length) * 300
+  const normalized = normalizeRange(position, 0, cards.value.length) * 300
   return normalized === 0 ? 0 : normalized
 };
 
@@ -48,7 +52,7 @@ function resetAllCard() {
   cards.value.forEach((card: ItemCard, index) => {
     resetCard(card, index)
     if (isFirstCard(index)) {
-      gestureHandler.attachToView(toRaw(card.view));
+      getGestureHandler().attachToView(toRaw(card.view));
     }
   })
 }
@@ -77,7 +81,6 @@ function resetCard(card: ItemCard, indexView: number) {
 function applyTranslateY() {
   for (let index = 0; index < (currentView.value + 1); index++) {
     const card = cards.value[index];
-
     if (index <= currentView.value) {
       toRaw(card.view).animate({
         translate: {
@@ -105,7 +108,7 @@ function outCard(card: ItemCard, direction: Direction) {
   })
   currentView.value = currentView.value - 1
   if (currentView.value >= 0) {
-    gestureHandler.attachToView(toRaw(cards.value[currentView.value].view) as View);
+    getGestureHandler().attachToView(toRaw(cards.value[currentView.value].view));
     applyTranslateY();
   } else {
     //finish
@@ -141,7 +144,7 @@ function loadedCard(args: { object: View }, index: number) {
   args.object.scaleY = getScale(index)
   args.object.scaleX = getScale(index)
   if (isFirstCard(index)) {
-    gestureHandler.attachToView(args.object);
+    getGestureHandler().attachToView(args.object);
   }
 }
 </script>
@@ -168,7 +171,7 @@ function loadedCard(args: { object: View }, index: number) {
           </GestureRootView>
         </GridLayout>
 
-        <FlexboxLayout row="1" class="justify-around  items-center  rounded-t-[28]">
+        <FlexboxLayout row="1" class="justify-around  items-center">
           <ActionButton @tap="discard" class="h-[80] w-[80]" icon="close"/>
           <ActionButton @tap="resetAllCard" class="h-[56] w-[56]" icon="refresh"/>
           <ActionButton @tap="like" class="h-[80] w-[80]" icon="favorite"/>
