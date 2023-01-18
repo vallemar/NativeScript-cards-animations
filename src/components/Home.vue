@@ -50,7 +50,6 @@ function resetAllCard() {
     if (isFirstCard(index)) {
       gestureHandler.attachToView(toRaw(card.view));
     }
-    // applyTranslateY();
   })
 }
 
@@ -94,8 +93,6 @@ function applyTranslateY() {
       })
     }
   }
-
-  console.log("applyTranslateY")
 }
 
 function outCard(card: ItemCard, direction: Direction) {
