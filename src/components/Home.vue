@@ -9,7 +9,7 @@ import {
   HandlerType as NSHandlerType,
   Manager as NSManager
 } from '@nativescript-community/gesturehandler';
-import {CoreTypes, View} from "@nativescript/core";
+import {CoreTypes, View, isIOS} from "@nativescript/core";
 import {ItemCard, Direction, GestureState} from "~/types";
 import ActionButton from "~/components/ActionButton.vue";
 import {dataCard} from "~/constant";
@@ -123,7 +123,7 @@ function onGestureTouch(args: NSGestureTouchEventData) {
   if (view) {
     view.translateX = extraData.translationX + getTranslateX(currentView.value);
     view.translateY = extraData.translationY + getTranslateY(currentView.value);
-    view.rotate = (extraData.translationX * 0.1);
+    view.rotate = extraData.translationX * (isIOS ? 0.05 : 0.1);
   }
 }
 
@@ -164,7 +164,6 @@ function loadedCard(args: { object: View }, index: number) {
                 width="90%"
                 class="rounded-3xl mt-20"
                 :src="card.img"
-
                 :translateY="getTranslateY(index)"
                 :translateX="getTranslateX(index)"
             />
