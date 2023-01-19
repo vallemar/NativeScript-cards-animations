@@ -30,22 +30,15 @@ const getGestureHandler = () => {
   return gestureHandler;
 }
 
-const getTranslateX = (index: number) => 0 // for alternate => index === (cards.value.length - 1) ? 0 : index % 2 === 0 ? 4 : -4;
 
+const getScale = (index: number) => normalizeRange(currentPosition(index), cards.value.length, 0);
+const getTranslateY = (index: number) => normalizeRange(currentPosition(index), 0, cards.value.length) * 300;
 const normalizeRange = (val: number, max: number, min: number) => (val - min) / (max - min);
-const getScale = (index: number) => {
-  const position = cards.value.length - currentView.value + index;
-  return normalizeRange(position, cards.value.length, 0)  //(cards.value.length - currentView.value + index) * 0.1
-};
-const getTranslateY = (index: number) => {
-  const position = cards.value.length - currentView.value + index;
-  const normalized = normalizeRange(position, 0, cards.value.length) * 300
-  return normalized === 0 ? 0 : normalized
-};
-
+const currentPosition = (index: number) => cards.value.length - currentView.value + index;
+const isFirstCard = (index: number) => (index === cards.value.length - 1)
+const hasMoreCards = () => currentView.value >= 0
 const like = () => outCard(cards.value[currentView.value], Direction.Right);
 const discard = () => outCard(cards.value[currentView.value], Direction.Left)
-const isFirstCard = (index: number) => (index === cards.value.length - 1)
 
 function resetAllCard() {
   currentView.value = cards.value.length - 1;
@@ -59,13 +52,9 @@ function resetAllCard() {
 
 function resetCard(card: ItemCard, indexView: number) {
   toRaw(card.view).animate({
-    rotate: {
-      x: 0,
-      y: 0,
-      z: 0
-    },
+    rotate: 0,
     translate: {
-      x: getTranslateX(indexView),
+      x: 0,
       y: getTranslateY(indexView)
     },
     scale: {
@@ -73,7 +62,7 @@ function resetCard(card: ItemCard, indexView: number) {
       y: getScale(indexView)
     },
     duration: 250,
-    curve: CoreTypes.AnimationCurve.cubicBezier(0.17, 0.89, 0.24, 1.11)
+    curve: CoreTypes.AnimationCurve.cubicBezier(0.17, 0.89, 0.24, 1.20)
   })
 
 }
@@ -91,7 +80,6 @@ function applyTranslateY() {
           x: getScale(index),
           y: getScale(index)
         },
-
         duration: 250,
       })
     }
@@ -99,29 +87,29 @@ function applyTranslateY() {
 }
 
 function outCard(card: ItemCard, direction: Direction) {
-  toRaw(card.view).animate({
-    translate: {
-      x: direction === Direction.Left ? -500 : 500,
-      y: 50
-    },
-    duration: 250
-  })
-  currentView.value = currentView.value - 1
-  if (currentView.value >= 0) {
-    getGestureHandler().attachToView(toRaw(cards.value[currentView.value].view));
-    applyTranslateY();
-  } else {
-    //finish
-    setTimeout(() => {
-      resetAllCard()
-    }, 1000)
+  if (hasMoreCards()) {
+    toRaw(card.view).animate({
+      rotate: direction === Direction.Left ? -40 : 40,
+      translate: {
+        x: direction === Direction.Left ? -500 : 500,
+        y: 100
+      },
+      duration: 250
+    })
+    currentView.value = currentView.value - 1
+    if (currentView.value >= 0) {
+      getGestureHandler().attachToView(toRaw(cards.value[currentView.value].view));
+      applyTranslateY();
+    } else {
+      //finish
+    }
   }
 }
 
 function onGestureTouch(args: NSGestureTouchEventData) {
   const {state, extraData, view} = args.data;
   if (view) {
-    view.translateX = extraData.translationX + getTranslateX(currentView.value);
+    view.translateX = extraData.translationX;
     view.translateY = extraData.translationY + getTranslateY(currentView.value);
     view.rotate = extraData.translationX * (isIOS ? 0.05 : 0.1);
   }
@@ -140,11 +128,13 @@ function onGestureState(args: NSGestureStateEventData) {
 }
 
 function loadedCard(args: { object: View }, index: number) {
-  cards.value[index].view = args.object
-  args.object.scaleY = getScale(index)
-  args.object.scaleX = getScale(index)
-  if (isFirstCard(index)) {
-    getGestureHandler().attachToView(args.object);
+  if (!cards.value[index].view) {
+    cards.value[index].view = args.object
+    args.object.scaleY = getScale(index)
+    args.object.scaleX = getScale(index)
+    if (isFirstCard(index)) {
+      getGestureHandler().attachToView(args.object);
+    }
   }
 }
 </script>
@@ -156,7 +146,6 @@ function loadedCard(args: { object: View }, index: number) {
         <GridLayout class="100%">
           <GestureRootView>
             <Image
-                verticalAlignment="center"
                 v-for="(card, index) in cards" :key="index"
                 @loaded="loadedCard($event, index)"
                 stretch="aspectFill"
@@ -165,7 +154,6 @@ function loadedCard(args: { object: View }, index: number) {
                 class="rounded-3xl mt-20"
                 :src="card.img"
                 :translateY="getTranslateY(index)"
-                :translateX="getTranslateX(index)"
             />
           </GestureRootView>
         </GridLayout>
