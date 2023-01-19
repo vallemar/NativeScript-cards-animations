@@ -22,7 +22,7 @@ const manager = NSManager.getInstance();
 
 const getGestureHandler = () => {
   const gestureHandler = manager.createGestureHandler(NSHandlerType.PAN, 10, {
-    shouldCancelWhenOutside: true
+    shouldCancelWhenOutside: false
   });
 
   gestureHandler.on(NSGestureHandlerTouchEvent, onGestureTouch as () => void);
