@@ -2,7 +2,6 @@
 
 const {icon} = defineProps({
   icon: String
-
 })
 </script>
 <template>

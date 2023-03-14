@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {ref, Ref, toRaw,} from "nativescript-vue";
+import {ref, Ref, toRaw, computed} from "nativescript-vue";
 
 import {
   GestureHandlerStateEvent as NSGestureHandlerStateEvent,
@@ -7,10 +7,11 @@ import {
   GestureStateEventData as NSGestureStateEventData,
   GestureTouchEventData as NSGestureTouchEventData,
   HandlerType as NSHandlerType,
-  Manager as NSManager
+  Manager as NSManager,
+  PanGestureHandler
 } from '@nativescript-community/gesturehandler';
-import {CoreTypes, View, isIOS} from "@nativescript/core";
-import {ItemCard, Direction, GestureState} from "~/types";
+import {CoreTypes, View, isIOS, Screen} from "@nativescript/core";
+import {ItemCard, Direction, GestureState, CardStatus} from "~/types";
 import ActionButton from "~/components/ActionButton.vue";
 import {dataCard} from "~/constant";
 
@@ -18,18 +19,19 @@ import {dataCard} from "~/constant";
 const cards = ref(dataCard.reverse()) as Ref<ItemCard[]>
 const currentView = ref(cards.value.length - 1)
 
+const currentIconStatus = computed(() => cards.value[currentView.value]?.status == CardStatus.ToExitLeft ? {icon:'thumb_down', color: '#ff6961'} : cards.value[currentView.value]?.status == CardStatus.ToExitRight ? {icon:'thumb_up', color: '#77dd77'} : null)
+
 const manager = NSManager.getInstance();
+let gestureHandler: PanGestureHandler = null!;
+let cardViews = 0;
 
 const getGestureHandler = () => {
-  const gestureHandler = manager.createGestureHandler(NSHandlerType.PAN, 10, {
-    shouldCancelWhenOutside: false
-  });
+  gestureHandler = manager.createGestureHandler(NSHandlerType.PAN, cardViews++);
 
   gestureHandler.on(NSGestureHandlerTouchEvent, onGestureTouch as () => void);
   gestureHandler.on(NSGestureHandlerStateEvent, onGestureState as () => void);
   return gestureHandler;
 }
-
 
 const getScale = (index: number) => normalizeRange(currentPosition(index), cards.value.length, 0);
 const getTranslateY = (index: number) => normalizeRange(currentPosition(index), 0, cards.value.length) * 300;
@@ -43,8 +45,10 @@ const discard = () => outCard(cards.value[currentView.value], Direction.Left)
 function resetAllCard() {
   currentView.value = cards.value.length - 1;
   cards.value.forEach((card: ItemCard, index) => {
-    resetCard(card, index)
+    resetCard(card, index);
+    card.status= CardStatus.Back;
     if (isFirstCard(index)) {
+      card.status= CardStatus.Front;
       getGestureHandler().attachToView(toRaw(card.view));
     }
   })
@@ -64,7 +68,6 @@ function resetCard(card: ItemCard, indexView: number) {
     duration: 250,
     curve: CoreTypes.AnimationCurve.cubicBezier(0.17, 0.89, 0.24, 1.20)
   })
-
 }
 
 function applyTranslateY() {
@@ -73,8 +76,8 @@ function applyTranslateY() {
     if (index <= currentView.value) {
       toRaw(card.view).animate({
         translate: {
+          x: 0,
           y: getTranslateY(index),
-          x: 0
         },
         scale: {
           x: getScale(index),
@@ -88,17 +91,22 @@ function applyTranslateY() {
 
 function outCard(card: ItemCard, direction: Direction) {
   if (hasMoreCards()) {
+    const width = (toRaw(card.view).getActualSize().width / 2) + Screen.mainScreen.widthDIPs;
     toRaw(card.view).animate({
       rotate: direction === Direction.Left ? -40 : 40,
       translate: {
-        x: direction === Direction.Left ? -500 : 500,
+        x: direction === Direction.Left ? -width : width,
         y: 100
       },
       duration: 250
     })
+
+    gestureHandler.detachFromView()
+    card.status = Direction.Left ? CardStatus.ExitLeft : CardStatus.ExitRight;
     currentView.value = currentView.value - 1
     if (currentView.value >= 0) {
       getGestureHandler().attachToView(toRaw(cards.value[currentView.value].view));
+      cards.value[currentView.value].status = CardStatus.Front;
       applyTranslateY();
     } else {
       //finish
@@ -111,7 +119,11 @@ function onGestureTouch(args: NSGestureTouchEventData) {
   if (view) {
     view.translateX = extraData.translationX;
     view.translateY = extraData.translationY + getTranslateY(currentView.value);
-    view.rotate = extraData.translationX * (isIOS ? 0.05 : 0.1);
+    view.rotate = extraData.translationX * (isIOS ? 0.02 : 0.1);
+
+    if(state !== GestureState.END){
+      cards.value[currentView.value].status = extraData.translationX == 0 ? CardStatus.Front :  extraData.translationX > 0 ? CardStatus.ToExitRight : CardStatus.ToExitLeft;
+    }
   }
 }
 
@@ -119,10 +131,12 @@ function onGestureState(args: NSGestureStateEventData) {
   const {state, prevState, extraData, view} = args.data;
   if (state === GestureState.END) {
     const card = cards.value[currentView.value]
-    if (extraData.translationX >= 200 || extraData.translationX <= -200) {
-      outCard(card, extraData.translationX >= 200 ? Direction.Right : Direction.Left)
-    } else {
+    const limitOffset = (Screen.mainScreen.widthDIPs / 2) 
+    if (extraData.translationX >= limitOffset || extraData.translationX <= -limitOffset) {
+      outCard(card, extraData.translationX >= limitOffset ? Direction.Right : Direction.Left)
+    } else {   
       resetCard(card, currentView.value);
+      card.status =  CardStatus.Front;
     }
   }
 }
@@ -144,20 +158,30 @@ function loadedCard(args: { object: View }, index: number) {
     <Page actionBarHidden="true" androidStatusBarBackground="#1F232B" class="bg-[#1F232B]">
       <GridLayout rows="*, 150" class="flex-col">
         <GridLayout class="100%">
-          <GestureRootView>
-            <Image
+          <GridLayout 
                 v-for="(card, index) in cards" :key="index"
-                @loaded="loadedCard($event, index)"
-                stretch="aspectFill"
-                height="500"
+                @loaded="loadedCard($event, index)" 
+                height="60%"
                 width="90%"
-                class="rounded-3xl mt-20"
-                :src="card.img"
                 :translateY="getTranslateY(index)"
+                class="rounded-3xl">
+            <Image
+                stretch="aspectFill"
+                height="100%"
+                width="100%"
+                class="rounded-3xl"
+                :src="card.img"
             />
-          </GestureRootView>
+            <Label
+              verticalAlignment="center"
+              horizontalAlignment="center"
+              style="font-size: 28"
+              class="m-icon-round bg-[#1F232B]/60 p-2 rounded-full text-white"
+              :class="[`text-[${currentIconStatus?.color}]`]"
+              :hidden="!currentIconStatus || card.status === CardStatus.Back"
+              :text="currentIconStatus?.icon"></Label>
+          </GridLayout>
         </GridLayout>
-
         <FlexboxLayout row="1" class="justify-around  items-center">
           <ActionButton @tap="discard" class="h-[80] w-[80]" icon="close"/>
           <ActionButton @tap="resetAllCard" class="h-[56] w-[56]" icon="refresh"/>

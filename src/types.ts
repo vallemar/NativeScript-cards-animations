@@ -16,12 +16,16 @@ export enum GestureState {
 
 export enum CardStatus {
     Back,
-    Show,
-    Discard
+    Front,
+    ExitLeft,
+    ExitRight,
+    ToExitLeft,
+    ToExitRight
 }
 
 export type ItemCard ={
     img: string,
     status: CardStatus,
-    view: View
+    view: View,
+    title: string
 }
