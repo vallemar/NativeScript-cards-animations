@@ -52,6 +52,7 @@ const like = () => outCard(cards.value[currentView.value], Direction.Right);
 const discard = () => outCard(cards.value[currentView.value], Direction.Left);
 
 function resetAllCard() {
+  gestureHandler.detachFromView();
   currentView.value = cards.value.length - 1;
   cards.value.forEach((card: ItemCard, index) => {
     resetCard(card, index);
@@ -189,7 +190,7 @@ function loadedCard(args: { object: View }, index: number) {
             v-for="(card, index) in cards"
             :key="index"
             @loaded="loadedCard($event, index)"
-            height="60%"
+            height="70%"
             width="90%"
             :translateY="getTranslateY(index)"
             class="rounded-3xl"
